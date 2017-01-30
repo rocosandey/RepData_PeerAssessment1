@@ -8,18 +8,86 @@ output:
 
 ## Loading and preprocessing the data
 
-
+Read the data file in.
+```{r readfile}
+activity <- read.csv("activity.csv")
+```
+Change the date column to the correct format
+```{r transform}
+activity$date <- as.Date(activity$date,"%Y-%m-%d")
+```
 
 ## What is mean total number of steps taken per day?
+Sum the number of steps per day
+```{r sum_day}
+activity_day <- tapply(activity$steps,activity$date,sum,na.rm=TRUE)
+```
+Create histogram
+```{r hist_day}
+hist(activity_day)
+```
 
-
+Calculate mean and median of steps taken per day
+```{r stats_day}
+mean(activity_day)
+median(activity_day)
+```
 
 ## What is the average daily activity pattern?
+Calculate the average number of steps by 5 minutes interval
+```{r avg_day}
+activity_day_avg <- tapply(activity$steps,activity$interval,mean,na.rm=TRUE)
+```
+Plot a times series
+```{r plot_avg_day}
+plot(names(activity_day_avg),activity_day_avg, type = "l")
+```
 
-
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r max_avg_day}
+activity_day_avg[which.max(activity_day_avg)]
+```
 
 ## Imputing missing values
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r NAs}
+count(is.na(activity$steps))
+```
+Strategy to fill missing values : use the average number of steps by 5 minutes interval
+``` {r na_strategy}
+df <- data.frame(activity_day_avg)
+df <- cbind(df, interval=rownames(df))
+activity_m <- merge(activity,df, all.x = TRUE)
+```
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r filling_nas}
+activity_m[is.na(activity_m$steps),"steps"] <- activity_m[is.na(activity_m$steps),"activity_day_avg"]
+```
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day
+```{r histo_missingnas}
+activity_m_int <- tapply(activity_m$steps,activity_m$date,sum)
+hist(activity_m_int)
+```
 
+Calculate and report the mean and median total number of steps taken per day
+```{r missingnas_stats}
+mean(activity_m_int)
+median(activity_m_int)
+```
 
+It looks like the imputing of NA values increases the middle bar (mean/median) height and decreses the 0-5000 bar which seems logical according to the strategy we choosed to fill missing values (using the average)
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" 
+```{r weekdays}
+activity_m$weekday <- as.factor(ifelse(weekdays(activity_m$date) < "Saturday","weekday","weekend"))
+library(plyr)
+activity_m_day_avg <- ddply(activity_m,c("interval","weekday"), function(x) colMeans(x["steps"]))
+```
+Make a panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across all weekday days or weekend days.
+```{r panel_plot}
+library(ggplot2)
+ggplot(activity_m_day_avg,aes(x = interval, y = steps)) + 
+    geom_line(stat="identity") + 
+    facet_wrap(~ weekday, nrow = 2) 
+```
